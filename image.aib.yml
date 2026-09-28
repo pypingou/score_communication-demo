@@ -30,8 +30,8 @@ content:
       exist_ok: true
 
   add_files:
-    # This drop-in makes SCORE's /tmp message-passing endpoints and /dev/shm
-    # data/control objects visible to both the root and QM partitions.
+    # Share LoLa marker/lock files under /tmp and named POSIX SHM objects
+    # under /dev/shm. Linux UDS endpoints use the abstract socket namespace.
     - path: /etc/containers/systemd/qm.container.d/10-score-com-demo.conf
       text: |
         [Container]

@@ -14,7 +14,7 @@ The image is assembled directly from Bazel-built executables and configuration f
 
 AutoSD runs QM applications inside its `qm` system container. The AIB manifest installs the provider and one client into the QM filesystem, and installs the other client into the root filesystem. It enables a systemd unit for each process.
 
-On Linux, SCORE's LoLa shared-memory objects are backed by POSIX shared memory and its message-passing/service-discovery artifacts also use filesystem paths. For this demonstration, the QM container is configured to share the host `/dev/shm` and `/tmp` mounts. This lets the QM provider, QM client, and root client see the same SCORE IPC objects and endpoints.
+On Linux, LoLa stores event data in named POSIX shared-memory objects under `/dev/shm` and uses `AF_UNIX`/`SOCK_STREAM` abstract-namespace sockets for its message-passing notifications. These socket endpoints are kernel-named, not filesystem socket files, so a `/tmp` bind mount does not expose them; the communicating processes need to share the relevant network namespace. The demo also shares `/tmp`: LoLa's service-discovery and partial-restart markers live under `/tmp/mw_com_lola`, while shared-memory synchronization lock files are directly under `/tmp` (for example, `/tmp/lola-data-*_lock`). The QM container therefore shares `/dev/shm` for the data/control objects and `/tmp` for LoLa's marker and lock files.
 
 > **Security warning:** The manifest sets SELinux to permissive to keep this introductory IPC example focused. It also shares `/tmp` and `/dev/shm` with the QM container and enables root SSH with a demo password. These are bring-up settings only. Do not use the image for deployment; production use needs a reviewed SELinux policy, restricted mounts/permissions, and production credentials. The [SIG shared-memory QM/root demo](https://gitlab.com/CentOS/automotive/sig-docs/-/tree/main/demos/shared_memory_qm_root) documents the more restrictive policy approach.
 
@@ -69,7 +69,7 @@ Review `image.aib.yml` to see how the image is composed:
 
 - Root partition: one `consumer_app` installation and its service unit.
 - QM partition: the `provider_app`, the other `consumer_app`, their units, and configurations.
-- QM container drop-in: bind-mounts the root `/tmp` and `/dev/shm` into QM so SCORE's message-passing endpoints and shared-memory objects are visible from both partitions.
+- QM container drop-in: bind-mounts the root `/tmp` (LoLa marker/lock files) and `/dev/shm` (POSIX shared-memory objects) into QM. LoLa's Linux UDS endpoints use the abstract namespace, not `/tmp` socket files.
 - Private executables are installed under `/usr/libexec/score-communication-demo/`; the demo's fixed, architecture-independent configs and logging files remain under `/usr/share/score-communication-demo/`. The per-app working directories preserve SCORE's default `./etc/mw_com_config.json` lookup.
 
 The manifest enables SSH for the demo and sets the root password to `password`. Both settings are for a local test VM only.
