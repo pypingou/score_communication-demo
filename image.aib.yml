@@ -1,0 +1,163 @@
+name: score-communication-demo
+
+# Permissive SELinux is used only to keep this cross-partition IPC tutorial
+# focused on SCORE mw::com. Replace it with a reviewed policy before deployment.
+image:
+  selinux_mode: permissive
+
+content:
+  rpms:
+    # Runtime dependencies of the Bazel-built SCORE applications.
+    - libatomic
+    - libstdc++
+    # SSH is only enabled to make the local QEMU demo easy to inspect.
+    - openssh-server
+    - openssh-clients
+
+  make_dirs:
+    - path: /etc/containers/systemd/qm.container.d
+      mode: 0755
+      parents: true
+      exist_ok: true
+    - path: /usr/libexec/score-communication-demo/root-client
+      mode: 0755
+      parents: true
+      exist_ok: true
+    - path: /usr/share/score-communication-demo/root-client/etc
+      mode: 0755
+      parents: true
+      exist_ok: true
+
+  add_files:
+    # This drop-in makes SCORE's /tmp message-passing endpoints and /dev/shm
+    # data/control objects visible to both the root and QM partitions.
+    - path: /etc/containers/systemd/qm.container.d/10-score-com-demo.conf
+      text: |
+        [Container]
+        Volume=/tmp:/tmp:rw
+        Volume=/dev/shm:/dev/shm:rw
+
+    # Root-partition client bundle.
+    - path: /usr/libexec/score-communication-demo/root-client/consumer_app
+      source_path: ./artifacts/opt/HelloWorldClient/bin/consumer_app
+    - path: /usr/share/score-communication-demo/root-client/etc/mw_com_config.json
+      source_path: ./configs/root-client.json
+    - path: /usr/share/score-communication-demo/root-client/etc/logging.json
+      source_path: ./artifacts/opt/HelloWorldClient/etc/logging.json
+
+    - path: /etc/systemd/system/score-demo-root-client.service
+      text: |
+        [Unit]
+        Description=SCORE mw::com Hello World client in the root partition
+
+        [Service]
+        Type=simple
+        WorkingDirectory=/usr/share/score-communication-demo/root-client
+        ExecStart=/usr/libexec/score-communication-demo/root-client/consumer_app
+        Restart=on-failure
+        RestartSec=2
+
+        [Install]
+        WantedBy=multi-user.target
+
+  chmod_files:
+    - path: /usr/libexec/score-communication-demo/root-client/consumer_app
+      mode: "0755"
+
+  systemd:
+    enabled_services:
+      - sshd.service
+      - score-demo-root-client.service
+
+qm:
+  content:
+    rpms:
+      # Runtime dependencies of the Bazel-built SCORE applications.
+      - libatomic
+      - libstdc++
+
+    make_dirs:
+      - path: /usr/libexec/score-communication-demo/qm-server
+        mode: 0755
+        parents: true
+        exist_ok: true
+      - path: /usr/share/score-communication-demo/qm-server/etc
+        mode: 0755
+        parents: true
+        exist_ok: true
+      - path: /usr/libexec/score-communication-demo/qm-client
+        mode: 0755
+        parents: true
+        exist_ok: true
+      - path: /usr/share/score-communication-demo/qm-client/etc
+        mode: 0755
+        parents: true
+        exist_ok: true
+
+    add_files:
+      # Publisher (server) bundle runs inside the QM partition.
+      - path: /usr/libexec/score-communication-demo/qm-server/provider_app
+        source_path: ./artifacts/opt/HelloWorldServer/bin/provider_app
+      - path: /usr/share/score-communication-demo/qm-server/etc/mw_com_config.json
+        source_path: ./configs/provider.json
+      - path: /usr/share/score-communication-demo/qm-server/etc/logging.json
+        source_path: ./artifacts/opt/HelloWorldServer/etc/logging.json
+
+      # One consumer also runs inside QM.
+      - path: /usr/libexec/score-communication-demo/qm-client/consumer_app
+        source_path: ./artifacts/opt/HelloWorldClient/bin/consumer_app
+      - path: /usr/share/score-communication-demo/qm-client/etc/mw_com_config.json
+        source_path: ./configs/qm-client.json
+      - path: /usr/share/score-communication-demo/qm-client/etc/logging.json
+        source_path: ./artifacts/opt/HelloWorldClient/etc/logging.json
+
+      - path: /etc/systemd/system/score-demo-provider.service
+        text: |
+          [Unit]
+          Description=SCORE mw::com Hello World provider in QM
+          After=local-fs.target
+
+          [Service]
+          Type=simple
+          WorkingDirectory=/usr/share/score-communication-demo/qm-server
+          ExecStart=/usr/libexec/score-communication-demo/qm-server/provider_app
+          Restart=on-failure
+          RestartSec=2
+
+          [Install]
+          WantedBy=multi-user.target
+      - path: /etc/systemd/system/score-demo-qm-client.service
+        text: |
+          [Unit]
+          Description=SCORE mw::com Hello World client in QM
+          Requires=score-demo-provider.service
+          After=score-demo-provider.service
+
+          [Service]
+          Type=simple
+          WorkingDirectory=/usr/share/score-communication-demo/qm-client
+          ExecStartPre=/usr/bin/sleep 1
+          ExecStart=/usr/libexec/score-communication-demo/qm-client/consumer_app
+          Restart=on-failure
+          RestartSec=2
+
+          [Install]
+          WantedBy=multi-user.target
+
+    chmod_files:
+      - path: /usr/libexec/score-communication-demo/qm-server/provider_app
+        mode: "0755"
+      - path: /usr/libexec/score-communication-demo/qm-client/consumer_app
+        mode: "0755"
+
+    systemd:
+      enabled_services:
+        - score-demo-provider.service
+        - score-demo-qm-client.service
+
+auth:
+  # Local demo credentials only. Replace or remove these before deployment.
+  root_password: $6$xoLqEUz0cGGJRx01$H3H/bFm0myJPULNMtbSsOFd/2BnHqHkMD92Sfxd.EKM9hXTWSmELG8cf205l6dktomuTcgKGGtGDgtvHVXSWU.
+  sshd_config:
+    PasswordAuthentication: true
+    PermitRootLogin: true

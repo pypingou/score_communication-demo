@@ -4,6 +4,11 @@ user.downloader_config
 user.bazelrc
 _build
 
+# Generated Bazel bundles and AIB image outputs
+/artifacts/
+*.qcow2
+*.img
+
 # ignore folders created by IDEs
 .vscode
 .idea
