@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 FROM quay.io/centos/centos:stream10
 
 ARG BAZEL_VERSION=8.7.0

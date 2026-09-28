@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 name: score-communication-demo
 
 # Permissive SELinux is used only to keep this cross-partition IPC tutorial

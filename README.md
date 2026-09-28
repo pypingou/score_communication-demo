@@ -131,3 +131,7 @@ podman exec -it qm systemctl status score-demo-provider.service score-demo-qm-cl
 - **AIB cannot find an artifact:** run `./build.sh` before `./build-image.sh`.
 - **No QM logs:** check `podman ps --filter name=qm`, then check `podman exec -it qm systemctl status score-demo-provider.service score-demo-qm-client.service`.
 - **No root-client logs:** check `systemctl status score-demo-root-client.service` and ensure the `qm.container.d` drop-in mounts `/tmp` and `/dev/shm` into the QM container.
+
+## License
+
+The demo files in this repository are licensed under the [MIT License](LICENSE). This does not relicense the upstream SCORE communication source or binaries, AutoSD, AIB, or other third-party components; those remain under their respective licenses.
